@@ -1,5 +1,8 @@
 //INFO: quickly prototype/deploy apps using phonegap & loading from url/sdcard
 enAppMovil= true;
+GLOBAL= this.GLOBAL || this;
+CfgUser= GLOBAL.CfgUser || "XxxUser";
+CfgPass= GLOBAL.CfgPass || "XxxPass";
 
 //S: base 
 function ensureInit(k,v,scope) { //D: ensure k exists in scope initializing with "v" if it didn't
@@ -174,6 +177,7 @@ function getHttp(url,reqdata,cbok,cbfail) {
 	$.ajax({ url: url, data: reqdata,
 		cache: false,
 		dataType: 'text', //A: don't eval or process data
+		headers: { "Authorization": "Basic " + btoa( CfgUser + ":" + CfgPass) }, 
 		beforeSend: function (jqXHR, settings) { //A: for binary downloads
       jqXHR.overrideMimeType('text/plain; charset=x-user-defined');
     },
@@ -185,7 +189,7 @@ function getHttp(url,reqdata,cbok,cbfail) {
 	});
 }
 
-CFGLIB.pathToLib="pt/pg/";
+CFGLIB.pathToLib="pm/pg/";
 CFGLIB.pathDfltInLib="a/";
 
 function evalFile(name,failSilently,cbok,cbfail) { 
