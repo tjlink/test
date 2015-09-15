@@ -244,6 +244,32 @@ funcionConCache_a_archivos= function (nombre,funcion,cbIdx,funcionClavePara,cach
             }
             setTimeout(cb,10);
         };
+		
+		removeTemporaryNoteFromLocalStorage = function(elementId, t, cbok, cbf) {
+		for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+			var regex = new RegExp("note." + elementId);
+			if (regex.test(k)) {
+				logm("DBG", 1, "SE ELIMINO LA NOTA TEMPORARIA PARA EL elementId : " + elementId);
+                localStorage.removeItem(k);
+            }
+        }
+        setTimeout(cb, 10);
+		};
+		
+		changeNoteInLocalStorage = function(elementId, newNote, t, cbok, cbf) {
+			for (var i = 0; i < localStorage.length; i++) {
+				var k = localStorage.key(i);
+				var regex = new RegExp("\D*(note_5f)+.*(" + elementId + ")+");
+				newNote_encriptado = encriptar([newNote]);
+				if (regex.test(k)) {
+					localStorage[k] = ser_planoOjson(newNote_encriptado);
+					logm("DBG", 1, "NOTA MODIFICADA: " + JSON.stringify(newNote));
+				}
+			}
+			setTimeout(cb, 10);
+		};
+		
     }
     if (enAppMovil || CACHE_LOCALSTORAGE) {
         var cacheArchivos= nuevo_cache_envuelto(nuevo_cache_archivosMovil(nombre+"_archivos",prefijoNombreArchivo),encriptar,encriptar_r);
