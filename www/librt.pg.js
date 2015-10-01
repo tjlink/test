@@ -100,9 +100,15 @@ function keysFile(dirPath,cb) {
 
  function fsSuccess(fs) {
   logm("DBG",9,"keysFile gotfs",[dirPath,fs.root]); try {
+   //A: hago backup de la variable fs.root.fullPath, porque sino se pisa y crea carpetas pm donde no debería
+   var bkp = fs.root.fullPath;
+
    if (dirPath) { fs.root.fullPath= dirPath; } //A: cd //XXX: NO usar O restaurar, PERSISTE PARA OTRAS LLAMADAS!!!
-   var directoryReader = fs.root.createReader()
+   var directoryReader = fs.root.createReader();
    directoryReader.readEntries(cb,cb);
+
+   //A:restauro variable fs.root.fullPath con el valor que tenía originalmente
+   fs.root.fullPath = bkp;
   } catch (ex) { logm("ERR",7,"keysFile gotfs",[dirPath,ex.message]); }
  }
 }
@@ -191,6 +197,7 @@ function getHttp(url,reqdata,cbok,cbfail) {
  },
   success: function(resdata){
    logm("DBG",8,"getHttp",{url: url, len: reqdata.length, req: reqdata, res: resdata});
+   logIn =true;
    cbok(resdata);
   },
   error: function (){
@@ -198,8 +205,8 @@ function getHttp(url,reqdata,cbok,cbfail) {
      Cfg.online = false;
     //error al conectarse
     if (!offLine){
+      offLine = true;
       if(!logIn){
-       //userOffline(Cfg.User , Cfg.Pass, reqdata , cbfail);
           var cfgPath  = CFGLIB.pathToLib.substring(0,CFGLIB.pathToLib.indexOf("/"))+"/cfg";
           getFile(cfgPath, "txt",function (result){
                 var src=encriptar_fromSVR_r(result,SRC_KEY);
@@ -209,16 +216,26 @@ function getHttp(url,reqdata,cbok,cbfail) {
                   if(Cfg.Pass==jsonCfg.pass){
 
                     logIn=true;
-                    offLine = true;
                     alert (" No se pudo conectar a: " + url + " .Intentando Recuperar datos locales..." );
                     cbfail(reqdata);
 
-                  }else{  alert("La combinación de usuario y contraseña es incorrecta."); }
-              }else{  alert("La combinación de usuario y contraseña es incorrecta."); }
+                  }else
+                   {
+                     alert("La combinación de usuario y contraseña es incorrecta.");
+                   }
+              }
+               else{
+                   alert("La combinación de usuario y contraseña es incorrecta.");
+               }
+
+                 if(!logIn){
+                  //LibAppStarted=false;
+                  rtInit();
+                 }
 
            },function (){
-            //puede ser que borre los datos locales ???
-            alert("Error al querer Iniciar sesion");
+            //puede ser que no tenga el cfg
+            alert("Error al querer Iniciar sesion. Para ingresar por primera vez debe estar conectado a la red. ");
            })
 
       }
@@ -275,6 +292,37 @@ function evalUpdated(name,cbok,cbfail) {
  s0();
 }
 
+//S: Borrar archivos
+function removeFile(path, cbok, cbfail){
+    console.log("remove file");
+    var relativeFilePath = path;
+    window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, function(fileSystem){
+        fileSystem.root.getFile(relativeFilePath, {create:false}, function(fileEntry){
+            fileEntry.remove(function(file){
+                console.log("File removed!");
+            },function(){
+                console.log("error deleting the file " + error.code);
+                });
+            },function(){
+                console.log("file does not exist");
+            });
+        },function(evt){
+            console.log(evt.target.error.code);
+    });
+}
+
+//S: Lee archivo local almacenada en particular sin la funcionalidad de caché
+function readLocalFile(path,params,cbok,cbfail) {
+    
+    getFile(path, "txt",
+            function(result) {cbok(result);},
+            function(err) {
+                logm("DBG", 1, "syncSubirCadaNota - getFile Error, no trae nota - Err:", err);
+                cbfail(params);
+               }
+          );
+}
+
 //S: init
 CFG_APPURL_DFLT= 'https://192.168.184.187:8443/app';
 CFGLIB.appUrl= CFG_APPURL_DFLT;
@@ -291,7 +339,7 @@ function runApp() { //XXX:generalizar usando evalUpdated
 
         if(offLine){
           //por que no hay nada guardado no se encontraron los datos.
-          alert("Error al iniciar en modo offline. No se encontraron datos locales");
+          alert("No se encontraron datos locales. No se puede ingresar sin conexión a la red");
         }else{
           alert("Error iniciando paso 2, ingresó los datos correctos? ("+str(err)+")");
         }
@@ -307,7 +355,7 @@ function runApp() { //XXX:generalizar usando evalUpdated
 ensureInit("LibAppStarted",false,this);
 ensureInit("Cfg",false,this);
 function rtInit() {
-
+ offLine=false;
  logIn =false;
  if (LibAppStarted)
   { return true; }
@@ -324,10 +372,10 @@ function rtInit() {
  var bgo=$('<button>Iniciar</buton>');
  var bgx=$('<button>Salir</buton>');
  var bgc=$('<a href="#">(borrar datos locales)</a>');
- form.append(iusr).append("<br>");
- form.append(ipass).append("<br>");
- form.append(iversion).append("<br>");
- form.append(bgo).append("<br>");
+ form.append(iusr).append("<br><br>");
+ form.append(ipass).append("<br><br>");
+ form.append(iversion).append("<br><br><br>");
+ form.append(bgo).append("<br><br>");
  form.append(bgx).append("<br><br><br>");
  form.append(bgc);
 
@@ -352,28 +400,4 @@ function rtInit() {
  bgc.off('click').on('click',function () { borrarTodo_dir(CFGLIB.pathToLib,true,function () { alert("Los archivos locales han sido eliminados"); }); });
 }
 document.addEventListener("deviceready", rtInit, false);
-
-
-function userOffline (user , pass,reqdata,cbfail){
-   var cfgPath  = CFGLIB.pathToLib+"cfg";
-   getFile(cfgPath, "txt",function (result){
-       //var src= encriptar_r(result,SRC_KEY);
-        var jsonCfg = JSON.parse(result);
-
-        if(user==jsonCfg.user){
-             if(pass==jsonCfg.pass){
-               logIn=true;
-               alert (" No se pudo conectar a: " + url + " .Intentando Recuperar datos locales..." );
-               cbfail(reqdata);
-             }
-        }
-
-         if(!logIn){  alert("La combinación de usuario y contraseña es incorrecta."); }
-
-   },function (){
-      //puede ser que borre los datos locales ???
-      alert("Error al querer Iniciar sesion");
-   });
-
-}
 
